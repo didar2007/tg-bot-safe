@@ -1,158 +1,92 @@
-import os
 import json
 from datetime import datetime
 
 import telebot
 from telebot import types
 
-
-def must_get_env(name: str) -> str:
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise RuntimeError(
-            f"Переменная окружения {name} не задана. "
-            f"Добавь её в Railway → Variables."
-        )
-    return value
-
-
-# === Railway Variables ===
-TOKEN = must_get_env("TOKEN")
-WEBAPP_URL = must_get_env("WEBAPP_URL")
-ADMIN_ID = int(must_get_env("ADMIN_ID"))
-
-# Админ username (без @). Можно не задавать, тогда кнопка не появится.
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "").strip().lstrip("@")
+TOKEN = "8310101212:AAHD5r1vaPljpzK2BGbypLnQVmv5bfMkH64"
+WEBAPP_URL = "https://didar2007.github.io/tg-miniapp/?v=6"
+ADMIN_ID = 5935991563
+ADMIN_USERNAME = "salemhanovvv"  # без @
 
 bot = telebot.TeleBot(TOKEN)
 
 
-def build_main_keyboard():
-    """
-    ReplyKeyboard (нижняя панель кнопок):
-    - открыть магазин (WebApp)
-    - связаться с администратором (если задан ADMIN_USERNAME)
-    """
+def main_keyboard():
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-    webapp_btn = types.KeyboardButton(
-        "🛒 Открыть магазин",
-        web_app=types.WebAppInfo(url=WEBAPP_URL),
-    )
-    kb.add(webapp_btn)
-
-    if ADMIN_USERNAME:
-        kb.add(types.KeyboardButton("📩 Связаться с администратором"))
-
+    kb.add(types.KeyboardButton("🛒 Открыть магазин", web_app=types.WebAppInfo(url=WEBAPP_URL)))
+    kb.add(types.KeyboardButton("📩 Связаться с администратором"))
     return kb
 
 
-def build_inline_contact():
-    """
-    Inline-кнопка (под сообщением): открыть чат с админом.
-    """
-    if not ADMIN_USERNAME:
-        return None
-
+def admin_inline_button():
     ikb = types.InlineKeyboardMarkup()
-    ikb.add(
-        types.InlineKeyboardButton(
-            "📩 Написать администратору",
-            url=f"https://t.me/{ADMIN_USERNAME}"
-        )
-    )
+    ikb.add(types.InlineKeyboardButton("✉️ Написать администратору", url=f"https://t.me/{ADMIN_USERNAME}"))
     return ikb
-
-
-def safe_int(x, default=0):
-    try:
-        return int(x)
-    except Exception:
-        return default
 
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    bot.send_message(
-        message.chat.id,
-        "Нажми кнопку ниже, чтобы открыть магазин:",
-        reply_markup=build_main_keyboard()
+    text = (
+        "🔥 *WAKA STORE* 🔥\n\n"
+        "💨 *Оригинальные WAKA* — яркий вкус и мощная тяга.\n"
+        "🚚 Доставка по городу: *30–60 минут*\n\n"
+        "Выбирай действие ниже 👇"
     )
-
-
-@bot.message_handler(commands=["myid"])
-def myid(message):
-    bot.send_message(message.chat.id, f"Твой ID: {message.from_user.id}")
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=main_keyboard())
 
 
 @bot.message_handler(func=lambda m: m.text == "📩 Связаться с администратором")
 def contact_admin(message):
-    """
-    Кнопка в чате (ReplyKeyboard): отправляем пользователю сообщение с inline-кнопкой,
-    которая откроет чат с админом.
-    """
-    if not ADMIN_USERNAME:
-        bot.send_message(message.chat.id, "Администратор не настроен.")
-        return
-
-    bot.send_message(
-        message.chat.id,
-        "Нажми кнопку ниже, чтобы написать администратору:",
-        reply_markup=build_inline_contact()
+    text = (
+        "📩 *Связь с администратором*\n\n"
+        "Если хочешь уточнить наличие, вкус или доставку — нажми кнопку ниже 👇"
     )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=admin_inline_button())
 
 
 @bot.message_handler(content_types=["web_app_data"])
 def web_app(message):
     raw = message.web_app_data.data
-
     user = message.from_user
-    username = f"@{user.username}" if user.username else "нет username"
+    username = f"@{user.username}" if user.username else "без username"
 
-    # Пытаемся разобрать JSON
     try:
         payload = json.loads(raw)
     except Exception:
         payload = None
 
-    # Если пришёл не JSON — отправим админу как есть
+    # если пришел не JSON
     if not isinstance(payload, dict):
-        bot.send_message(message.chat.id, "✅ Заказ принят! Мы скоро свяжемся с вами.")
+        bot.send_message(
+            message.chat.id,
+            "✅ *Заказ принят!* Мы скоро свяжемся с вами 💨",
+            parse_mode="Markdown"
+        )
         bot.send_message(
             ADMIN_ID,
-            "📦 НОВЫЙ ЗАКАЗ (сырой текст)\n"
-            f"Время: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-            f"От: {user.first_name} (id: {user.id}, {username})\n\n"
-            f"{raw}"
+            f"📦 *НОВЫЙ ЗАКАЗ (сырой текст)*\n\n"
+            f"👤 Клиент: {user.first_name} ({username})\n"
+            f"🆔 ID: `{user.id}`\n\n"
+            f"{raw}",
+            parse_mode="Markdown"
         )
         return
 
-    # ОЖИДАЕМЫЙ ФОРМАТ ОТ ТВОЕГО HTML СЕЙЧАС:
-    # {
-    #   "phone": "...",
-    #   "address": "...",
-    #   "items": [{catId,index,name,ru,price,qty}, ...],
-    #   "total": 12345
-    # }
     phone = (payload.get("phone") or "").strip()
     address = (payload.get("address") or "").strip()
     items = payload.get("items") or []
     total = payload.get("total", None)
 
-    # Собираем строки заказа
     lines = []
     if isinstance(items, list):
         for it in items:
             if isinstance(it, dict):
                 name = (it.get("name") or "").strip()
                 ru = (it.get("ru") or "").strip()
-                qty = safe_int(it.get("qty", 1), 1)
-                price = safe_int(it.get("price", 0), 0)
-
-                line = f"• {name}"
-                if ru:
-                    line += f" — {ru}"
-                line += f" ×{qty}"
+                qty = int(it.get("qty", 1) or 1)
+                price = int(it.get("price", 0) or 0)
+                line = f"• *{name}*\n  _{ru}_ ×{qty}"
                 if price:
                     line += f" = ₸{price * qty}"
                 lines.append(line)
@@ -164,29 +98,27 @@ def web_app(message):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     admin_text = (
-        "📦 НОВЫЙ ЗАКАЗ\n"
-        f"Время: {now}\n"
-        f"От: {user.first_name} (id: {user.id}, {username})\n"
-        f"Телефон: {phone or '—'}\n"
-        f"Адрес: {address or '—'}\n\n"
-        "Состав заказа:\n" + ("\n".join(lines) if lines else "• (пусто)")
+        "🚨 *НОВЫЙ ЗАКАЗ WAKA* 🚨\n\n"
+        f"🕒 Время: {now}\n"
+        f"👤 Клиент: {user.first_name} ({username})\n"
+        f"🆔 ID: `{user.id}`\n"
+        f"📱 Телефон: *{phone or '—'}*\n"
+        f"🏠 Адрес: *{address or '—'}*\n\n"
+        "📦 *Состав заказа:*\n" + ("\n".join(lines) if lines else "• (пусто)")
+    )
+    if total is not None:
+        admin_text += f"\n\n💰 *ИТОГО: ₸{total}*"
+
+    # клиенту — красиво
+    user_text = (
+        "✅ *Заказ принят!* 🎉\n\n"
+        "Спасибо за заказ в *WAKA STORE* 💨\n"
+        "Администратор свяжется с вами в ближайшее время.\n\n"
+        "Если нужно уточнить детали — напишите администратору 👇"
     )
 
-    if total is not None:
-        admin_text += f"\n\nИТОГО: ₸{total}"
-
-    # Клиенту
-    bot.send_message(message.chat.id, "✅ Заказ принят! Мы скоро свяжемся с вами.")
-
-    # Админу + удобная кнопка "написать админу" (опционально)
-    bot.send_message(ADMIN_ID, admin_text)
-
-    if ADMIN_USERNAME:
-        bot.send_message(
-            message.chat.id,
-            "Если нужно уточнить детали — напишите администратору:",
-            reply_markup=build_inline_contact()
-        )
+    bot.send_message(message.chat.id, user_text, parse_mode="Markdown", reply_markup=admin_inline_button())
+    bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
 
 
 bot.polling(none_stop=True)
