@@ -56,21 +56,21 @@ def web_app(message):
     except Exception:
         payload = None
 
-    # если пришел не JSON
+    # если пришёл не JSON — шлём админу без parse_mode (чтобы не падало)
     if not isinstance(payload, dict):
         bot.send_message(
             message.chat.id,
             "✅ *Заказ принят!* Мы скоро свяжемся с вами 💨",
             parse_mode="Markdown"
         )
-        bot.send_message(
-            ADMIN_ID,
-            f"📦 *НОВЫЙ ЗАКАЗ (сырой текст)*\n\n"
+
+        admin_raw_text = (
+            "📦 НОВЫЙ ЗАКАЗ (сырой текст)\n\n"
             f"👤 Клиент: {user.first_name} ({username})\n"
-            f"🆔 ID: `{user.id}`\n\n"
-            f"{raw}",
-            parse_mode="Markdown"
+            f"🆔 ID: {user.id}\n\n"
+            f"{raw}"
         )
+        bot.send_message(ADMIN_ID, admin_raw_text)  # <-- без Markdown
         return
 
     phone = (payload.get("phone") or "").strip()
@@ -78,6 +78,7 @@ def web_app(message):
     items = payload.get("items") or []
     total = payload.get("total", None)
 
+    # Формируем строки товаров (для админа — без Markdown)
     lines = []
     if isinstance(items, list):
         for it in items:
@@ -86,7 +87,11 @@ def web_app(message):
                 ru = (it.get("ru") or "").strip()
                 qty = int(it.get("qty", 1) or 1)
                 price = int(it.get("price", 0) or 0)
-                line = f"• *{name}*\n  _{ru}_ ×{qty}"
+
+                line = f"• {name}"
+                if ru:
+                    line += f" — {ru}"
+                line += f" ×{qty}"
                 if price:
                     line += f" = ₸{price * qty}"
                 lines.append(line)
@@ -97,19 +102,20 @@ def web_app(message):
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+    # Сообщение админу — БЕЗ parse_mode (самое надёжное)
     admin_text = (
-        "🚨 *НОВЫЙ ЗАКАЗ WAKA* 🚨\n\n"
-        f"🕒 Время: {now}\n"
-        f"👤 Клиент: {user.first_name} ({username})\n"
-        f"🆔 ID: `{user.id}`\n"
-        f"📱 Телефон: *{phone or '—'}*\n"
-        f"🏠 Адрес: *{address or '—'}*\n\n"
-        "📦 *Состав заказа:*\n" + ("\n".join(lines) if lines else "• (пусто)")
+        "🚨 НОВЫЙ ЗАКАЗ WAKA 🚨\n\n"
+        f"Время: {now}\n"
+        f"Клиент: {user.first_name} ({username})\n"
+        f"ID: {user.id}\n"
+        f"Телефон: {phone or '—'}\n"
+        f"Адрес: {address or '—'}\n\n"
+        "Состав заказа:\n" + ("\n".join(lines) if lines else "• (пусто)")
     )
     if total is not None:
-        admin_text += f"\n\n💰 *ИТОГО: ₸{total}*"
+        admin_text += f"\n\nИТОГО: ₸{total}"
 
-    # клиенту — красиво
+    # Клиенту — красиво (Markdown оставляем)
     user_text = (
         "✅ *Заказ принят!* 🎉\n\n"
         "Спасибо за заказ в *NEXA WAKA* 💨\n"
@@ -118,7 +124,7 @@ def web_app(message):
     )
 
     bot.send_message(message.chat.id, user_text, parse_mode="Markdown", reply_markup=admin_inline_button())
-    bot.send_message(ADMIN_ID, admin_text, parse_mode="Markdown")
+    bot.send_message(ADMIN_ID, admin_text)  # <-- ВАЖНО: без parse_mode
 
 
 bot.polling(none_stop=True)
