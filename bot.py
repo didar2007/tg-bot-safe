@@ -6,7 +6,7 @@ from telebot import types
 
 TOKEN = "8310101212:AAHD5r1vaPljpzK2BGbypLnQVmv5bfMkH64"
 WEBAPP_URL = "https://didar2007.github.io/tg-miniapp/?v=7"
-ADMIN_ID = 1178841535
+ADMIN_ID = 8835596560
 ADMIN_USERNAME = "kimcerato"  # без @
 
 bot = telebot.TeleBot(TOKEN)
