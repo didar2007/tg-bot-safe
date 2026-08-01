@@ -4,7 +4,7 @@ from datetime import datetime
 import telebot
 from telebot import types
 
-TOKEN = "8310101212:AAHD5r1vaPljpzK2BGbypLnQVmv5bfMkH64"
+TOKEN = "8310101212:AAE2ECsaVvA5VcK7XviK-LSaGiEjfT5o1_8"
 WEBAPP_URL = "https://didar2007.github.io/tg-miniapp/?v=7"
 ADMIN_ID = 8835596560
 ADMIN_USERNAME = "kimcerato"  # без @
